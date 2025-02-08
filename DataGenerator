@@ -12,7 +12,7 @@ class TransactionCostSimulator():
     self.base_vol = 0.001
 
     # Days and Timesteps for stochastic process
-    self.n_days = 90
+    self.n_days = 10
     self.timestep = 1/252
 
     self.sector_choice = "Industrials"
@@ -45,20 +45,28 @@ class TransactionCostSimulator():
 
 
     # Correlation matrix that is required to generate correlated stochastic processes
-    corr_mat = []
+    self.corr_mat = [[1.        , 0.10613038, 0.06720876, 0.0723708 , 0.07090028],
+       [0.10613038, 1.        , 0.1690226 , 0.08636133, 0.08066976],
+       [0.06720876, 0.1690226 , 1.        , 0.06547732, 0.04201025],
+       [0.0723708 , 0.08636133, 0.06547732, 1.        , 0.060396  ],
+       [0.07090028, 0.08066976, 0.04201025, 0.060396  , 1.        ]]
 
-  #def _correlated_GBM(self):
 
-
-
+  # Creating correlated Wiener Processes for Ornstein-Uhlenbeck via Cholesky Decomposition
+  def _correlated_dW(self):
+    dW_independent = np.random.normal(0, 1, size=(10, 5)) * np.sqrt(self.timestep)
+    L = np.linalg.cholesky(self.corr_mat)
+    dW_correlated = dW_independent @ L.T
+    return dW_correlated
 
   # Defining method to create base OU process. Making timestep = 1 for now
   def _base_ou_process(self, mean, volatility, reversion_speed, n_days, timestep):
     base_TC = np.zeros(n_days)
-    base_TC[0] = np.random.normal(self.base_mean, self.base_vol, 1)
+    base_TC[0] = np.random.normal(mean, volatility, 1)
+    dW = self._correlated_dW()[:, 0]
     for i in range(1, n_days):
-      dW = np.random.normal(0, 1) * np.sqrt(timestep)
-      base_TC[i] = max(base_TC[i-1] + reversion_speed * (mean - base_TC[i-1]) * timestep + volatility * dW, 0)
+      #dW = np.random.normal(0, 1) * np.sqrt(timestep)
+      base_TC[i] = max(base_TC[i-1] + reversion_speed * (mean - base_TC[i-1]) * timestep + volatility * dW[i], 0)
 
     return base_TC
 
@@ -69,9 +77,10 @@ class TransactionCostSimulator():
     sector_vol = self.sectors_vol[sector]
     sector_TC = np.zeros(n_days)
     sector_TC[0] = max(np.random.normal(sector_mean, sector_vol, 1), 0)
+    dW = self._correlated_dW()[:, 1]
     for i in range(1, n_days):
-      dW = np.random.normal(0, 1) * np.sqrt(timestep)
-      sector_TC[i] = max(sector_TC[i-1] + reversion_speed * (sector_mean - sector_TC[i-1]) * timestep + sector_vol * dW, 0)
+      #dW = np.random.normal(0, 1) * np.sqrt(timestep)
+      sector_TC[i] = max(sector_TC[i-1] + reversion_speed * (sector_mean - sector_TC[i-1]) * timestep + sector_vol * dW[i], 0)
 
     return sector_TC
 
@@ -81,9 +90,10 @@ class TransactionCostSimulator():
     rating_vol = self.ratings_vol[rating]
     rating_TC = np.zeros(n_days)
     rating_TC[0] = max(np.random.normal(rating_mean, rating_vol, 1), 0)
+    dW = self._correlated_dW()[:, 2]
     for i in range(1, n_days):
-      dW = np.random.normal(0, 1) * np.sqrt(timestep)
-      rating_TC[i] = max(rating_TC[i-1] + reversion_speed * (rating_mean - rating_TC[i-1]) * timestep + rating_vol * dW, 0)
+      #dW = np.random.normal(0, 1) * np.sqrt(timestep)
+      rating_TC[i] = max(rating_TC[i-1] + reversion_speed * (rating_mean - rating_TC[i-1]) * timestep + rating_vol * dW[i], 0)
 
     return rating_TC
 
@@ -93,9 +103,10 @@ class TransactionCostSimulator():
     maturity_vol = self.maturity_vol[maturity]
     maturity_TC = np.zeros(n_days)
     maturity_TC[0] = max(np.random.normal(maturity_mean, maturity_vol, 1), 0)
+    dW = self._correlated_dW()[:, 3]
     for i in range(1, n_days):
-      dW = np.random.normal(0, 1) * np.sqrt(timestep)
-      maturity_TC[i] = max(maturity_TC[i-1] + reversion_speed * (maturity_mean - maturity_TC[i-1]) * timestep + maturity_vol * dW, 0)
+      #dW = np.random.normal(0, 1) * np.sqrt(timestep)
+      maturity_TC[i] = max(maturity_TC[i-1] + reversion_speed * (maturity_mean - maturity_TC[i-1]) * timestep + maturity_vol * dW[i], 0)
 
     return maturity_TC
 
@@ -105,9 +116,10 @@ class TransactionCostSimulator():
     liquidity_vol = self.liquidity_mean[liquidity]
     liqudity_TC = np.zeros(n_days)
     liqudity_TC[0] = max(np.random.normal(liqudity_mean, liquidity_vol, 1), 0)
+    dW = self._correlated_dW()[:, 4]
     for i in range(1, n_days):
-      dW = np.random.normal(0, 1) * np.sqrt(timestep)
-      liqudity_TC[i] = max(liqudity_TC[i-1] + reversion_speed * (liqudity_mean - liqudity_TC[i-1]) * timestep + liquidity_vol * dW, 0)
+      #dW = np.random.normal(0, 1) * np.sqrt(timestep)
+      liqudity_TC[i] = max(liqudity_TC[i-1] + reversion_speed * (liqudity_mean - liqudity_TC[i-1]) * timestep + liquidity_vol * dW[i], 0)
 
     return liqudity_TC
 
@@ -117,55 +129,63 @@ class TransactionCostSimulator():
     lotsize_vol = self.lot_size_vol[lotsize]
     lotsize_TC = np.zeros(n_days)
     lotsize_TC[0] = max(np.random.normal(lotsize_mean, lotsize_vol, 1), 0)
+    dW = self._correlated_dW()[:, 0]
     for i in range(1, n_days):
-      dW = np.random.normal(0, 1) * np.sqrt(timestep)
-      lotsize_TC[i] = max(lotsize_TC[i-1] + reversion_speed * (lotsize_mean - lotsize_TC[i-1]) * timestep + lotsize_vol * dW, 0)
+      #dW = np.random.normal(0, 1) * np.sqrt(timestep)
+      lotsize_TC[i] = max(lotsize_TC[i-1] + reversion_speed * (lotsize_mean - lotsize_TC[i-1]) * timestep + lotsize_vol * dW[i], 0)
 
     return lotsize_TC
 
 
   def generate_transaction_costs(self):
-    base_tc_component = self._base_ou_process(mean=self.base_mean,
-                                           volatility=self.base_vol,
-                                           reversion_speed=self.mean_reversion_speed,
-                                           n_days=self.n_days, timestep=self.timestep)
+    results = np.zeros((1000, self.n_days))
+    for i in range(1000):
+      base_tc_component = self._base_ou_process(mean=self.base_mean,
+                                            volatility=self.base_vol,
+                                            reversion_speed=self.mean_reversion_speed,
+                                            n_days=self.n_days, timestep=self.timestep)
 
-    sector_tc_component = self._sector_ou_process(sector=self.sector_choice,
-                                                  reversion_speed=self.mean_reversion_speed,
-                                                  n_days=self.n_days,
-                                                  timestep=self.timestep)
-
-    ratings_tc_component = self._ratings_ou_process(rating=self.ratings_choice,
+      sector_tc_component = self._sector_ou_process(sector=self.sector_choice,
                                                     reversion_speed=self.mean_reversion_speed,
                                                     n_days=self.n_days,
                                                     timestep=self.timestep)
 
-    maturity_tc_component = self._maturity_ou_process(maturity=self.maturity_choice,
+      ratings_tc_component = self._ratings_ou_process(rating=self.ratings_choice,
                                                       reversion_speed=self.mean_reversion_speed,
                                                       n_days=self.n_days,
                                                       timestep=self.timestep)
 
-    liquidity_tc_component = self._liquidity_ou_process(liquidity=self.liquidity_choice,
-                                                       reversion_speed=self.mean_reversion_speed,
-                                                       n_days=self.n_days,
-                                                       timestep=self.timestep)
+      maturity_tc_component = self._maturity_ou_process(maturity=self.maturity_choice,
+                                                        reversion_speed=self.mean_reversion_speed,
+                                                        n_days=self.n_days,
+                                                        timestep=self.timestep)
 
-    lotsize_tc_component = self._lotsize_ou_process(lotsize=self.lotsize_choice,
-                                                    reversion_speed=self.mean_reversion_speed,
-                                                    n_days=self.n_days,
-                                                    timestep=self.timestep)
+      liquidity_tc_component = self._liquidity_ou_process(liquidity=self.liquidity_choice,
+                                                        reversion_speed=self.mean_reversion_speed,
+                                                        n_days=self.n_days,
+                                                        timestep=self.timestep)
 
-    total_tc = [base_tc_component +
-                sector_tc_component +
-                ratings_tc_component +
-                maturity_tc_component +
-                liquidity_tc_component +
-                lotsize_tc_component +
-                self.random_noise]
+      lotsize_tc_component = self._lotsize_ou_process(lotsize=self.lotsize_choice,
+                                                      reversion_speed=self.mean_reversion_speed,
+                                                      n_days=self.n_days,
+                                                      timestep=self.timestep)
 
-    total_tc = pd.DataFrame(total_tc).T
+      total_tc = np.array([base_tc_component +
+                  sector_tc_component +
+                  ratings_tc_component +
+                  maturity_tc_component +
+                  liquidity_tc_component +
+                  lotsize_tc_component +
+                  self.random_noise])
+      
+      total_tc.reshape(1, 10)
+      
+      results[i, :] = total_tc
+    
+    results = pd.DataFrame(results)
 
-    return total_tc
+    return results
 
   def total_tc_statistics(self, df):
-    return df.describe()
+    df = df.T
+    return df.describe(), df.plot()
